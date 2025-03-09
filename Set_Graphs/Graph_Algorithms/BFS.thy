@@ -1,4 +1,4 @@
-theory BFS_2
+theory BFS
   imports Directed_Set_Graphs.Pair_Graph_Specs "HOL-Eisbach.Eisbach_Tools" Directed_Set_Graphs.Dist
           Directed_Set_Graphs.Set2_Addons More_Lists
 begin
@@ -472,6 +472,18 @@ lemma invar_current_reachable_holds_ret_1[invar_holds_intros]:
   "\<lbrakk>BFS_ret_1_conds bfs_state; invar_current_reachable bfs_state\<rbrakk> \<Longrightarrow> invar_current_reachable (BFS_ret1 bfs_state)"
   by (auto simp: intro: invar_props_intros)
 
+lemma invar_current_reachable_holds[invar_holds_intros]: 
+   assumes "BFS_dom bfs_state" "invar_1 bfs_state" "invar_2 bfs_state"
+            "invar_current_reachable bfs_state"
+   shows "invar_current_reachable (BFS bfs_state)"
+  using assms(2-)
+proof(induction rule: BFS_induct[OF assms(1)])
+  case IH: (1 bfs_state)
+  show ?case
+    apply(rule BFS_cases[where bfs_state = bfs_state])
+    by (auto intro!: IH(2-) intro: invar_holds_intros  simp: BFS_simps[OF IH(1)])
+qed
+
 lemma dist_current_plus_1_new:                                               
   assumes
     "invar_1 bfs_state" "invar_2 bfs_state" "invar_3_4 bfs_state" 
@@ -829,18 +841,6 @@ lemma invar_goes_through_current_holds[invar_holds_intros]:
    assumes "BFS_dom bfs_state" "invar_1 bfs_state" "invar_2 bfs_state"
             "invar_goes_through_current bfs_state"
    shows "invar_goes_through_current (BFS bfs_state)"
-  using assms(2-)
-proof(induction rule: BFS_induct[OF assms(1)])
-  case IH: (1 bfs_state)
-  show ?case
-    apply(rule BFS_cases[where bfs_state = bfs_state])
-    by (auto intro!: IH(2-) intro: invar_holds_intros  simp: BFS_simps[OF IH(1)])
-qed
-
-lemma invar_current_reachable_holds[invar_holds_intros]: 
-   assumes "BFS_dom bfs_state" "invar_1 bfs_state" "invar_2 bfs_state"
-            "invar_current_reachable bfs_state"
-   shows "invar_current_reachable (BFS bfs_state)"
   using assms(2-)
 proof(induction rule: BFS_induct[OF assms(1)])
   case IH: (1 bfs_state)
@@ -1310,6 +1310,7 @@ lemma BFS_correct_4_ret_1:
   apply(erule invar_props_elims)+
   by (auto elim!: call_cond_elims invar_props_elims)
 
+
 subsection \<open>Termination\<close>
 
 named_theorems termination_intros
@@ -1540,25 +1541,7 @@ proof-
     by(cases p, all \<open>cases q\<close>)(auto simp add: vwalk_bet_def)   
   ultimately show ?thesis by auto
 qed
-
-lemma BFS_graph_path_implies_parent_path_single_vertex:
-  assumes "s \<in> t_set srcs" "vwalk_bet_single_vertex (Graph.digraph_abs G) s p t" 
-  shows   "\<exists> q s'. vwalk_bet_single_vertex (Graph.digraph_abs (parents (BFS initial_state))) s' q t \<and> s' \<in> t_set srcs
-                   \<and> length q \<le> length p" 
-proof(cases "t \<in> t_set srcs")
-  case True
-  show ?thesis 
-    using True  assms
-    by (auto intro!: exI[of _ "[t]"] simp add: vwalk_bet_single_vertex_def Suc_leI)
-next
-  case False
-  hence vwalk:"vwalk_bet (Graph.digraph_abs G) s p t"
-    using assms(1) assms(2) vwalk_bet_single_vertex_def by fastforce
-  show ?thesis 
-    using  BFS_graph_path_implies_parent_path[OF assms(1) vwalk False]
-    by(auto simp add: vwalk_bet_single_vertex_def)
-qed
-
+ 
 lemma parent_path_cheaper:
   assumes "s \<in> t_set srcs" "vwalk_bet (Graph.digraph_abs G) s p t" "t \<notin> t_set srcs"
           "vwalk_bet (Graph.digraph_abs (parents (BFS initial_state))) s q t"
@@ -1572,12 +1555,10 @@ proof-
     by(cases p, all \<open>cases q\<close>)(auto simp add: vwalk_bet_def)
 qed
 
-
 lemma BFS_correct_4:
   "(Graph.digraph_abs (parents (BFS initial_state))) \<subseteq> (Graph.digraph_abs G)"
   apply(intro BFS_correct_4_ret_1[where bfs_state = "BFS initial_state"])
   by(auto intro: invar_holds_intros ret_holds_intros)
-
 end text \<open>context\<close>
 
 end text \<open>locale @{const BFS}\<close>
